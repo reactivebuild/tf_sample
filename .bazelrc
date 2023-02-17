@@ -1,0 +1,8 @@
+common --enable_bzlmod
+common --check_direct_dependencies=error
+
+build --java_language_version=11
+build --tool_java_language_version=11
+
+build --incompatible_disallow_empty_glob
+try-import %workspace%/user.bazelrc

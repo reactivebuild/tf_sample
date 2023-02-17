@@ -1,0 +1,8 @@
+exports_files(
+    [
+        "tf_init.bash",
+        "tf_init_builder.bash",
+        "tf_plan.bash",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,22 @@
+load("//build:tf.bzl", "tf_module", "tf_plan", "tf_provider")
+
+tf_provider(
+    name = "aws",
+    src = "provider.tf",
+)
+
+tf_module(
+    name = "app",
+    srcs = [
+        "main.tf",
+    ],
+)
+
+# This one should call terraform plan during test stage
+tf_plan(
+    name = "plan",
+    provider = ":aws",
+    deps = [
+        ":app",
+    ],
+)

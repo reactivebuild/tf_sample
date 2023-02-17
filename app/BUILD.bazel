@@ -1,0 +1,8 @@
+load("//build:tf.bzl", "tf_module")
+
+tf_module(
+    name = "app",
+    srcs = [
+        "main.tf"
+    ]
+)
