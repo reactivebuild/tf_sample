@@ -1,15 +1,15 @@
 load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
 
 def tf_provider(name, src):
-    native.filegroup(
-        name = "file_%s" % name,
-        srcs = [src],
-    )
+    lock_file = ".terraform.lock.hcl"
+
+    # This part consumes lock and should not return it, otherwise it is cyclic dependencies problem
     native.sh_binary(
         name = "tf_init_builder_%s" % name,
         data = [
-            ":file_%s" % name,
+            src,
             "@terraform//:file",
+            lock_file,
         ],
         srcs = ["//build:tf_init_builder.bash"],
         deps = [
@@ -20,22 +20,26 @@ def tf_provider(name, src):
         name = name,
         tool = ":tf_init_builder_%s" % name,
         mnemonic = "TerraformInit",
-        outs = [".terraform.lock.hcl"],
+        outs = ["lock"],
         execution_requirements = {
             "requires-network": "1",
         },
         args = [
-            "$(location .terraform.lock.hcl)",
+            "$(location lock)",
+            native.package_name(),
         ],
         out_dirs = [".terraform"],
     )
+
+    # Use <name>.init to respect terraform lock and prevent upgrades
     native.sh_binary(
-        name = "%s.save" % name,
+        name = "%s.init" % name,
         data = [
-            ":%s" % name,
+            src,
+            "@terraform//:file",
         ],
         args = [
-            "$(locations %s)" % name,
+            native.package_name(),
         ],
         srcs = ["//build:tf_init.bash"],
         deps = [

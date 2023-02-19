@@ -13,11 +13,13 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 set -eu
 
+# TODO: it is a workaround to find a folder where output files should be
+OUT_FOLDER="$(dirname $1)"
+
 TF="$(rlocation terraform/terraform)"
-ROOT="$(rlocation tf_sample/live)"
+ROOT="$(rlocation _main/$2)"
 echo "Running $TF in $ROOT"
 $TF -chdir="$ROOT" init
 
-echo "Move generated file to target location $(dirname $1)"
-mv "$ROOT/.terraform.lock.hcl" "$1"
-mv "$ROOT/.terraform" "$(dirname $1)"
+cp -rL "$ROOT/.terraform.lock.hcl" "${OUT_FOLDER}/lock"
+cp -rL "$ROOT/.terraform" "${OUT_FOLDER}"

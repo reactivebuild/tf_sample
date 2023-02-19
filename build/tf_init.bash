@@ -13,8 +13,14 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 set -eu
 
-# out of the sandbox to the workspace directory.
-cp -i $2 "$BUILD_WORKSPACE_DIRECTORY/$2"
-chmod 664 "$BUILD_WORKSPACE_DIRECTORY/$2"
+CURRENT_PACKAGE=$1
 
+TF="$(rlocation terraform/terraform)"
+echo "Running $TF in $(pwd)/${CURRENT_PACKAGE}"
+echo "Target is $BUILD_WORKSPACE_DIRECTORY/${CURRENT_PACKAGE}"
 
+$TF -chdir="${CURRENT_PACKAGE}" init
+
+# Move generated file to workspace
+cp -rL "${CURRENT_PACKAGE}/.terraform.lock.hcl" "$BUILD_WORKSPACE_DIRECTORY/${CURRENT_PACKAGE}"
+chmod 664 "$BUILD_WORKSPACE_DIRECTORY/${CURRENT_PACKAGE}/.terraform.lock.hcl"
