@@ -1,3 +1,7 @@
+variable "input" {
+  type = string
+}
+
 output "result" {
-  value = "Blah"
+  value = var.input
 }

@@ -1,8 +1,7 @@
-load("//build:tf.bzl", "tf_module")
-
-tf_module(
+filegroup(
     name = "app",
     srcs = [
-        "main.tf"
-    ]
+        "main.tf",
+    ],
+    visibility = ["//visibility:public"],
 )

@@ -1,22 +1,36 @@
-load("//build:tf.bzl", "tf_module", "tf_plan", "tf_provider")
+load("//build:tf.bzl", "tf_plan", "tf_provider")
 
 tf_provider(
     name = "aws",
-    src = "provider.tf",
+    alias = "registry.terraform.io/hashicorp/aws/4.55.0/linux_amd64/terraform-provider-aws",
+    file = "@terraform_provider_aws//:terraform-provider-aws_v4.55.0_x5",
 )
 
-tf_module(
-    name = "app",
-    srcs = [
-        "main.tf",
-    ],
-)
+# "bazel run :init" generates lock file. It has to be stored under source control.
+#tf_init(
+#    name = "init",
+#    module = ":aws",
+#    lock = ".terraform.lock.hcl",
+#)
 
-# This one should call terraform plan during test stage
+# "bazel run :plan' should call terraform plan and generate tfplan file.
 tf_plan(
     name = "plan",
-    provider = ":aws",
-    deps = [
-        ":app",
+    srcs = [
+        "main.tf",
+        "//app",
+    ],
+    #    lock = ".terraform.lock.hcl",
+    provider = "provider.tf",
+    providers = [
+        ":aws",
     ],
 )
+
+# "bazel run :apply" should load tfplan and call terraform apply.
+#tf_apply(
+#    name = "apply",
+#    lock = ".terraform.lock.hcl",
+#    module = ":aws",
+#    plan = "tfplan",
+#)

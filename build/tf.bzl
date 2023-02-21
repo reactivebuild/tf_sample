@@ -1,70 +1,143 @@
 load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
 
-def tf_provider(name, src):
-    lock_file = ".terraform.lock.hcl"
-
-    # This part consumes lock and should not return it, otherwise it is cyclic dependencies problem
-    native.sh_binary(
-        name = "tf_init_builder_%s" % name,
-        data = [
-            src,
-            "@terraform//:file",
-            lock_file,
-        ],
-        srcs = ["//build:tf_init_builder.bash"],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
-    run_binary(
+# Extract and copy terraform providers to the particularly structured plugin cache folder.
+def tf_provider(name, alias, file):
+    native.genrule(
         name = name,
-        tool = ":tf_init_builder_%s" % name,
+        outs = [
+            "cache/%s" % alias,
+        ],
+        cmd = "cp $(locations %s) $@" % file,
+        srcs = [file],
+        output_to_bindir = False,
+    )
+
+#def _tr_init_impl(ctx):
+#    deps = depset(ctx.files.srcs)
+#
+#    #    deps = depset([ctx.files._terraform], transitive = [deps])
+#    deps = depset(ctx.files._terraform, transitive = [deps])
+#
+#    # This is troubleshooting
+#    lock_file = ctx.outputs.lock_file
+#    ctx.actions.run_shell(
+#        mnemonic = "TreeView",
+#        inputs = deps,
+#        outputs = [lock_file],
+#        command = "echo $1",
+#        arguments = [lock_file.path],
+#    )
+#
+#    #    input = depset([x], transitive = [deps])
+#    #    ctx.actions.run(
+#    #        mnemonic = "TerraformInit",
+#    #        executable = ctx.executable._terraform,
+#    #        inputs = input,
+#    #        arguments = [
+#    #            "-chdir=" +
+#    #            "-no-color",
+#    #            "init",
+#    #        ],
+#    #        outputs = [lock_file],
+#    #    )
+#    return [DefaultInfo(files = depset([ctx.outputs.lock_file]))]
+#
+#tf_init = rule(
+#    implementation = _tr_init_impl,
+#    attrs = {
+#        #        "lock": attr.label(
+#        #            allow_single_file = True,
+#        #        ),
+#        "srcs": attr.label_list(
+#            allow_files = [".tf"],
+#            mandatory = True,
+#        ),
+#        "providers": attr.label_list(),
+#        "_terraform": attr.label(
+#            default = Label("@terraform//:file"),
+#            allow_single_file = True,
+#            executable = True,
+#            cfg = "exec",
+#        ),
+#    },
+#    outputs = {
+#        "lock_file": ".terraform.lock.hcl",
+#        #        "cache": ".terraform",
+#    },
+#    #    executable = True,
+#)
+
+def _tf_plan_impl(ctx):
+    deps = depset(ctx.files.srcs)
+    deps = depset([ctx.file.provider], transitive = [deps])
+    deps = depset(ctx.files._terraform, transitive = [deps])
+    deps = depset(ctx.files.providers, transitive = [deps])
+
+    terraform = ctx.file._terraform
+    provider = ctx.file.provider
+    plan = ctx.outputs.plan
+
+    lock_file = ctx.actions.declare_file(".terraform.lock.hcl", sibling = provider)
+
+    # export TF_PLUGIN_CACHE_DIR=c &&
+    # $TF -lock=false -input=false
+
+    template = """
+# export TF_LOG=debug
+terraform -chdir={terraform_run_folder} init \
+ -plugin-dir=$(pwd)/{output_folder}/cache \
+ -input=false
+terraform -chdir={terraform_run_folder} plan \
+ -out=tfplan \
+ -input=false
+cp {terraform_run_folder}/.terraform.lock.hcl {output_folder}
+cp {terraform_run_folder}/tfplan {output_folder}
+tree -a
+"""
+    input = deps
+    ctx.actions.run_shell(
         mnemonic = "TerraformInit",
-        outs = ["lock"],
-        execution_requirements = {
-            "requires-network": "1",
-        },
-        args = [
-            "$(location lock)",
-            native.package_name(),
-        ],
-        out_dirs = [".terraform"],
+        #        executable = terraform,
+        inputs = input,
+        command = template.format(
+            output_folder = lock_file.dirname,
+            terraform_run_folder = provider.dirname,
+        ),
+        outputs = [lock_file, plan],
     )
 
-    # Use <name>.init to respect terraform lock and prevent upgrades
-    native.sh_binary(
-        name = "%s.init" % name,
-        data = [
-            src,
-            "@terraform//:file",
-        ],
-        args = [
-            native.package_name(),
-        ],
-        srcs = ["//build:tf_init.bash"],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
+    return [DefaultInfo(files = depset([plan]))]
 
-def tf_module(name, srcs):
-    native.filegroup(
-        name = name,
-        srcs = srcs,
-    )
-
-def tf_plan(name, provider, deps):
-    native.sh_test(
-        name = name,
-        srcs = ["//build:tf_plan.bash"],
-        data = deps + [
-            provider,
-            "@terraform//:file",
-        ],
-        args = [
-            "$(location %s)" % provider,
-        ],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
+tf_plan = rule(
+    implementation = _tf_plan_impl,
+    attrs = {
+        #        "lock": attr.label(
+        #            default = ".terraform.lock.hcl",
+        #            allow_single_file = True,
+        #            mandatory = True,
+        #        ),
+        "provider": attr.label(
+            default = "provider.tf",
+            allow_single_file = True,
+            mandatory = True,
+        ),
+        "srcs": attr.label_list(
+            allow_files = [".tf"],
+            mandatory = False,
+        ),
+        "providers": attr.label_list(
+            allow_files = True,
+            mandatory = False,
+        ),
+        "_terraform": attr.label(
+            default = Label("@terraform//:terraform"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+    outputs = {
+        "plan": "tfplan",
+    },
+    #    executable = True,
+)
