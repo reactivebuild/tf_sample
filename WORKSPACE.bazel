@@ -24,6 +24,7 @@ exports_files(
     visibility = ['//visibility:public']
 )
 """,
+    sha256 = "5dfc5b858a43cf45fde5542eb673f6104c14cdc3d73843d1b87a9e44545cbad4",
     urls = [
         "https://releases.hashicorp.com/terraform-provider-aws/4.55.0/terraform-provider-aws_4.55.0_linux_amd64.zip",
     ],
