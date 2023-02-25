@@ -1,0 +1,45 @@
+package(default_visibility = ["//visibility:public"])
+
+toolchain_type(name = "toolchain_type")
+
+load(":toolchain.bzl", "tf_toolchain")
+
+tf_toolchain(
+    name = "tf_linux_amd64",
+    executable = "@terraform_linux_amd64//:terraform",
+    plugins = [
+        "@terraform_provider_aws_darwin_amd64",
+    ],
+)
+
+tf_toolchain(
+    name = "tf_darwin_amd64",
+    executable = "@terraform_darwin_amd64//:terraform",
+    plugins = [
+        "@terraform_provider_aws_darwin_amd64",
+    ],
+)
+
+toolchain(
+    name = "tf_darwin_amd64_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+    ],
+    target_compatible_with = [
+        "@platforms//os:macos",
+    ],
+    toolchain = ":tf_darwin_amd64",
+    toolchain_type = ":toolchain_type",
+)
+
+toolchain(
+    name = "tf_linux_amd64_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+    ],
+    toolchain = ":tf_linux_amd64",
+    toolchain_type = ":toolchain_type",
+)

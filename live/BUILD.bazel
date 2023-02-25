@@ -1,12 +1,5 @@
-load("//build:tf.bzl", "tf_apply", "tf_init", "tf_module", "tf_plan", "tf_provider")
+load("//tf:rules.bzl", "tf_apply", "tf_init", "tf_module", "tf_plan")
 
-tf_provider(
-    name = "aws",
-    alias = "registry.terraform.io/hashicorp/aws/4.55.0/linux_amd64/terraform-provider-aws",
-    plugin = "@terraform_provider_aws//:terraform-provider-aws_v4.55.0_x5",
-)
-
-# TODO Add tf_module that collects sources, dependencies and providers
 tf_module(
     name = "module",
     srcs = [
@@ -15,8 +8,8 @@ tf_module(
         "//app",
     ],
     marker = ".tf_module",
-    providers = [
-        ":aws",
+    plugin_names = [
+        "terraform-provider-aws",
     ],
 )
 

@@ -1,27 +1,33 @@
+load(":providers.bzl", "PluginInfo")
+
 # Extract and copy terraform providers to the particularly structured plugin cache folder.
 def _tf_provider_impl(ctx):
-    out = ctx.actions.declare_file(ctx.attr.alias)
-    if len(ctx.files.plugin) != 1:
-        fail("Terraform plugin archive with only one file supported now.")
-    ctx.actions.symlink(
-        output = out,
-        target_file = ctx.files.plugin[0],
-    )
-    return DefaultInfo(
-        files = depset([out]),
-    )
+    plugins = ctx.toolchains["//tf:toolchain_type"].plugins
+    plugin_name = ctx.attr.plugin
+    matched = []
+    for p in plugins:
+        plugin_info = p[PluginInfo]
+        plugin_file = plugin_info.plugin_file
+        if plugin_file.basename == plugin_name:
+            matched.append(p)
+    if len(matched) == 0:
+        fail("Could not find terraform plugin %s." % plugin_name)
+    if len(matched) > 1:
+        print(matched)
+        fail("Multiple plugins with name %s found." % plugin_name)
+    return [
+        p[PluginInfo],
+        p[DefaultInfo],
+    ]
 
 tf_provider = rule(
     implementation = _tf_provider_impl,
     attrs = {
-        "alias": attr.string(
-            mandatory = True,
-        ),
-        "plugin": attr.label(
-            allow_single_file = True,
+        "plugin": attr.string(
             mandatory = True,
         ),
     },
+    toolchains = ["//tf:toolchain_type"],
 )
 
 TerraformModuleInfo = provider(
@@ -38,6 +44,11 @@ def _tf_module_impl(ctx):
         output = out_marker,
         target_file = ctx.file.marker,
     )
+
+    Continue:
+    1. bring all plugins to build tree
+    2. filter plugins by name
+
     return [
         TerraformModuleInfo(
             module_marker = ctx.file.marker,
@@ -59,11 +70,7 @@ tf_module = rule(
             allow_files = [".tf"],
             mandatory = False,
         ),
-        "providers": attr.label_list(
-            # TODO add constraint for providers
-            allow_files = True,
-            mandatory = False,
-        ),
+        "plugin_names": attr.string_list(),
     },
 )
 
@@ -73,7 +80,7 @@ def _tf_init_impl(ctx):
     module_info = ctx.attr.module[TerraformModuleInfo]
     module_srcs = ctx.attr.module[DefaultInfo].files  # TODO Make sure to get transient too
 
-    terraform = ctx.file._terraform
+    terraform = ctx.toolchains["//tf:toolchain_type"].executable
 
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
     content = """#!/bin/bash
@@ -109,14 +116,9 @@ tf_init = rule(
             providers = [TerraformModuleInfo],
             mandatory = True,
         ),
-        "_terraform": attr.label(
-            default = Label("@terraform//:terraform"),
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec",
-        ),
     },
     executable = True,
+    toolchains = ["//tf:toolchain_type"],
 )
 
 # TODO A couple more options to try:
@@ -135,6 +137,8 @@ def _tf_plan_impl(ctx):
     terraform_dir = ctx.outputs.terraform_dir
     outputs = [ctx.outputs.plan, terraform_dir]
 
+    terraform = ctx.toolchains["//tf:toolchain_type"].executable
+
     command = """
 # export TF_LOG=debug
 set -eu
@@ -149,7 +153,7 @@ cp {terraform_run_folder}/tfplan $1
 rm -rf $2
 cp -rL {terraform_run_folder}/.terraform $2
 """.format(
-        terraform = ctx.file._terraform.path,
+        terraform = terraform.path,
         terraform_run_folder = ctx.file.lock.dirname,
         output_folder = plan.dirname,
     )
@@ -200,24 +204,20 @@ tf_plan = rule(
             allow_files = True,
             mandatory = False,
         ),
-        "_terraform": attr.label(
-            default = Label("@terraform//:terraform"),
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec",
-        ),
     },
     outputs = {
         "plan": "tfplan",
         "terraform_dir": ".terraform",
     },
+    toolchains = ["//tf:toolchain_type"],
 )
 
 def _tf_apply_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
-    terraform = ctx.file._terraform
     plan_info_dep = ctx.attr.plan[PlanInfo]
     plan_default_dep = ctx.attr.plan[DefaultInfo]
+
+    terraform = ctx.toolchains["//tf:toolchain_type"].executable
 
     content = """
 #!/bin/bash
@@ -250,12 +250,7 @@ tf_apply = rule(
             mandatory = True,
             # TODO it should have constraint on PlanInfo
         ),
-        "_terraform": attr.label(
-            default = Label("@terraform//:terraform"),
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec",
-        ),
     },
+    toolchains = ["//tf:toolchain_type"],
     executable = True,
 )

@@ -1,0 +1,15 @@
+package(default_visibility = ["//visibility:public"])
+
+platform(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+    ],
+)
+
+platform(
+    name = "darwin_amd64",
+    constraint_values = [
+        "@platforms//os:macos",
+    ],
+)
