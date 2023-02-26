@@ -9,12 +9,14 @@ tf_module(
     name = "module",
     srcs = [
         "main.tf",
-        "//app",
-        "//live/one:module",
     ],
     marker = ".tf_module",
     providers = [
         ":aws",
+    ],
+    deps = [
+        "//app",
+        "//live/one:module",
     ],
 )
 

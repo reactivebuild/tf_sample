@@ -1,7 +1,10 @@
-filegroup(
+load("//tf:rules.bzl", "tf_module", "tf_plan")
+
+tf_module(
     name = "app",
     srcs = [
         "main.tf",
     ],
+    marker = ".tf_module",
     visibility = ["//visibility:public"],
 )

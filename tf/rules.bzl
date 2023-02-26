@@ -1,5 +1,10 @@
 load(":providers.bzl", "PluginInfo")
 
+TerraformProviderInfo = provider(
+    "Info to mark that rule outputs terraform provider",
+    fields = {},
+)
+
 # Extract and copy terraform providers to the particularly structured plugin cache folder.
 def _tf_provider_impl(ctx):
     plugins = ctx.toolchains["//tf:toolchain_type"].plugins
@@ -23,9 +28,12 @@ def _tf_provider_impl(ctx):
         output = out,
         target_file = plugin_info.plugin_file,
     )
-    return DefaultInfo(
-        files = depset([out]),
-    )
+    return [
+        DefaultInfo(
+            files = depset([out]),
+        ),
+        TerraformProviderInfo(),
+    ]
 
 tf_provider = rule(
     implementation = _tf_provider_impl,
@@ -52,13 +60,18 @@ def _tf_module_impl(ctx):
         target_file = ctx.file.marker,
     )
 
+    # Collect all files including transitive dependencies
+    all_files = depset(
+        ctx.files.srcs + ctx.files.providers,
+        transitive = [dep.files for dep in ctx.attr.deps],
+    )
     return [
         TerraformModuleInfo(
             module_marker = ctx.file.marker,
             output_marker = out_marker,
         ),
         DefaultInfo(
-            files = depset(ctx.files.srcs + ctx.files.providers),
+            files = all_files,
         ),
     ]
 
@@ -69,13 +82,15 @@ tf_module = rule(
             allow_single_file = True,
             mandatory = True,
         ),
+        "deps": attr.label_list(
+            providers = [TerraformModuleInfo],
+        ),
         "srcs": attr.label_list(
             allow_files = [".tf"],
             mandatory = False,
         ),
         "providers": attr.label_list(
-            # TODO add constraint for providers
-            # providers = [DefaultInfo, PluginInfo],
+            providers = [TerraformProviderInfo],
             allow_files = True,
             mandatory = False,
         ),
@@ -151,9 +166,8 @@ def _tf_plan_impl(ctx):
 
     terraform = ctx.toolchains["//tf:toolchain_type"].executable
 
-    command = """
+    command = """set -eu
 # enable to debug local provider resolution export TF_LOG=debug
-set -eu
 {terraform} -chdir={terraform_run_folder} init \
  -plugin-dir=$(pwd)/{output_folder} \
  -input=false -no-color

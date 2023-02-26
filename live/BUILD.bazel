@@ -10,11 +10,13 @@ tf_module(
     srcs = [
         "main.tf",
         "provider.tf",
-        "//app",
     ],
     marker = ".tf_module",
     providers = [
         ":aws",
+    ],
+    deps = [
+        "//app",
     ],
 )
 
