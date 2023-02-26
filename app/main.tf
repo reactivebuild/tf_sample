@@ -3,5 +3,5 @@ variable "input" {
 }
 
 output "result" {
-  value = var.input
+  value = "app returns:  ${var.input}"
 }

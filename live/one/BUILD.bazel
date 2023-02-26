@@ -1,0 +1,48 @@
+load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider")
+
+package(default_visibility = ["//visibility:public"])
+
+tf_provider(
+    name = "aws",
+    plugin = "terraform-provider-aws",
+)
+
+tf_module(
+    name = "module",
+    srcs = [
+        "main.tf",
+    ],
+    marker = ".tf_module",
+    providers = [
+        ":aws",
+    ],
+)
+
+# "bazel run :init" generates lock file. It has to be stored under source control.
+tf_init(
+    name = "init",
+    module = ":module",
+)
+
+# TODO: plan depends on the remote state in AWS. Is there a way to check that it did not changed
+# during the build stage?
+
+# "bazel build :plan' should call terraform plan and generate tfplan file.
+tf_plan(
+    name = "plan",
+    lock = ".terraform.lock.hcl",
+    module = ":module",
+)
+
+# "bazel run :apply" should load tfplan and call terraform apply.
+tf_apply_plan(
+    name = "apply_plan",
+    plan = ":plan",
+)
+
+# This one does not use pre-generated plan.
+tf_apply(
+    name = "apply",
+    lock = ".terraform.lock.hcl",
+    module = ":module",
+)
