@@ -265,13 +265,19 @@ def _tf_apply_impl(ctx):
     runfiles = ctx.runfiles(
         files = [terraform, ctx.file.lock] + module_srcs.to_list(),
     )
+
+    options = ""
+    if ctx.attr.auto_approve:
+        options = options + "-input=false -auto-approve"
+
     content = """set -eu
 {terraform} -chdir={terraform_run_folder} init -plugin-dir=. -input=false
-{terraform} -chdir={terraform_run_folder} apply -input=false
+{terraform} -chdir={terraform_run_folder} apply {options}
 """.format(
         terraform = terraform.path,
         terraform_run_folder = module_info.module_marker.dirname,
         output_folder = module_info.output_marker.dirname,
+        options = options,
     )
 
     ctx.actions.write(
@@ -296,6 +302,10 @@ tf_apply = rule(
         "module": attr.label(
             providers = [TerraformModuleInfo],
             mandatory = True,
+        ),
+        "auto_approve": attr.bool(
+            default = False,
+            mandatory = False,
         ),
     },
     toolchains = ["//tf:toolchain_type"],

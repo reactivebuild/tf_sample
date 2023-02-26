@@ -13,5 +13,5 @@ variable "input_to_one" {
 }
 
 output "output_from_one" {
-  value = "Output from two is ${var.input_to_one} version 2"
+  value = "Output from two is ${var.input_to_one} version 3"
 }

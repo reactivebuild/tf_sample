@@ -24,25 +24,10 @@ tf_init(
     module = ":module",
 )
 
-# TODO: plan depends on the remote state in AWS. Is there a way to check that it did not changed
-# during the build stage?
-
-# "bazel build :plan' should call terraform plan and generate tfplan file.
-tf_plan(
-    name = "plan",
-    lock = ".terraform.lock.hcl",
-    module = ":module",
-)
-
-# "bazel run :apply" should load tfplan and call terraform apply.
-tf_apply_plan(
-    name = "apply_plan",
-    plan = ":plan",
-)
-
 # This one does not use pre-generated plan.
 tf_apply(
     name = "apply",
+    auto_approve = True,
     lock = ".terraform.lock.hcl",
     module = ":module",
 )
