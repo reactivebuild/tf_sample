@@ -140,6 +140,11 @@ PlanInfo = provider(
 )
 
 def _tf_plan_impl(ctx):
+    # Let's collects module context.
+    module_info = ctx.attr.module[TerraformModuleInfo]
+    module_srcs = ctx.attr.module[DefaultInfo].files
+
+    # outputs
     plan = ctx.outputs.plan
     terraform_dir = ctx.outputs.terraform_dir
     outputs = [ctx.outputs.plan, terraform_dir]
@@ -161,13 +166,12 @@ rm -rf $2
 cp -rL {terraform_run_folder}/.terraform $2
 """.format(
         terraform = terraform.path,
-        terraform_run_folder = ctx.file.lock.dirname,
-        output_folder = plan.dirname,
+        terraform_run_folder = module_info.module_marker.dirname,
+        output_folder = module_info.output_marker.dirname,
     )
-    transitive = depset(ctx.files.providers)
     input = depset(
-        [ctx.file.provider, ctx.file.lock],
-        transitive = [transitive, depset(ctx.files.srcs)],
+        [ctx.file.lock],
+        transitive = [module_srcs],
     )
     ctx.actions.run_shell(
         mnemonic = "TerraformInit",
@@ -185,7 +189,7 @@ cp -rL {terraform_run_folder}/.terraform $2
         DefaultInfo(
             files = depset(
                 outputs,
-                transitive = [depset(ctx.files.srcs + [ctx.file.provider, ctx.file.lock])],
+                transitive = [input],
             ),
         ),
     ]
@@ -194,22 +198,12 @@ tf_plan = rule(
     implementation = _tf_plan_impl,
     attrs = {
         "lock": attr.label(
-            default = ".terraform.lock.hcl",
             allow_single_file = True,
             mandatory = True,
         ),
-        "provider": attr.label(
-            default = "provider.tf",
-            allow_single_file = True,
+        "module": attr.label(
+            providers = [TerraformModuleInfo],
             mandatory = True,
-        ),
-        "srcs": attr.label_list(
-            allow_files = [".tf"],
-            mandatory = False,
-        ),
-        "providers": attr.label_list(
-            allow_files = True,
-            mandatory = False,
         ),
     },
     outputs = {

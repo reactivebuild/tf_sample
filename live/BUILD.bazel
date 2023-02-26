@@ -30,15 +30,8 @@ tf_init(
 # "bazel build :plan' should call terraform plan and generate tfplan file.
 tf_plan(
     name = "plan",
-    srcs = [
-        "main.tf",
-        "//app",
-    ],
     lock = ".terraform.lock.hcl",
-    provider = "provider.tf",
-    providers = [
-        ":aws",
-    ],
+    module = ":module",
 )
 
 # "bazel run :apply" should load tfplan and call terraform apply.
