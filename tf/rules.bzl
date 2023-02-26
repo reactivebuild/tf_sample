@@ -101,7 +101,7 @@ tf_module = rule(
 def _tf_init_impl(ctx):
     # Let's collects module context.
     module_info = ctx.attr.module[TerraformModuleInfo]
-    module_srcs = ctx.attr.module[DefaultInfo].files  # TODO Make sure to get transient too
+    module_srcs = ctx.attr.module[DefaultInfo].files
 
     terraform = ctx.toolchains["//tf:toolchain_type"].executable
 
@@ -140,6 +140,59 @@ tf_init = rule(
         ),
     },
     executable = True,
+    toolchains = ["//tf:toolchain_type"],
+)
+
+def _tf_validate_test_impl(ctx):
+    # Let's collects module context.
+    module_info = ctx.attr.module[TerraformModuleInfo]
+    module_srcs = ctx.attr.module[DefaultInfo].files
+    terraform = ctx.toolchains["//tf:toolchain_type"].executable
+
+    out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
+    content = """set -eu
+TF_LOG=debug
+{terraform} -chdir={terraform_run_folder} init \
+ -plugin-dir=. \
+ -input=false -no-color -backend=false
+{terraform} -chdir={terraform_run_folder} validate \
+    -no-color
+""".format(
+        terraform = terraform.path,
+        terraform_run_folder = module_info.module_marker.dirname,
+        output_folder = module_info.output_marker.dirname,
+    )
+    ctx.actions.write(
+        output = out_file,
+        content = content,
+        is_executable = True,
+    )
+    input = depset(
+        [ctx.file.lock],
+        transitive = [module_srcs],
+    )
+    runfiles = ctx.runfiles(
+        files = [terraform] + input.to_list(),
+    )
+    return [DefaultInfo(
+        files = depset([out_file]),
+        executable = out_file,
+        runfiles = runfiles,
+    )]
+
+tf_validate_test = rule(
+    implementation = _tf_validate_test_impl,
+    attrs = {
+        "lock": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
+        "module": attr.label(
+            providers = [TerraformModuleInfo],
+            mandatory = True,
+        ),
+    },
+    test = True,
     toolchains = ["//tf:toolchain_type"],
 )
 

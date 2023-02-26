@@ -1,4 +1,4 @@
-load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider")
+load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider", "tf_validate_test")
 
 tf_provider(
     name = "aws",
@@ -23,6 +23,12 @@ tf_module(
 # "bazel run :init" generates lock file. It has to be stored under source control.
 tf_init(
     name = "init",
+    module = ":module",
+)
+
+tf_validate_test(
+    name = "validate",
+    lock = ".terraform.lock.hcl",
     module = ":module",
 )
 

@@ -1,4 +1,4 @@
-load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider", "tf_show_plan")
+load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider", "tf_show_plan", "tf_validate_test")
 
 tf_provider(
     name = "aws",
@@ -18,6 +18,13 @@ tf_module(
     deps = [
         "//app",
     ],
+)
+
+# Runs terraform validate. Does not need an access to remote state.
+tf_validate_test(
+    name = "validate",
+    lock = ".terraform.lock.hcl",
+    module = ":module",
 )
 
 # "bazel run :init" generates lock file. It has to be stored under source control.
