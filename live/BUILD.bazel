@@ -1,4 +1,9 @@
-load("//tf:rules.bzl", "tf_apply", "tf_init", "tf_module", "tf_plan")
+load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider")
+
+tf_provider(
+    name = "aws",
+    plugin = "terraform-provider-aws",
+)
 
 tf_module(
     name = "module",
@@ -8,8 +13,8 @@ tf_module(
         "//app",
     ],
     marker = ".tf_module",
-    plugin_names = [
-        "terraform-provider-aws",
+    providers = [
+        ":aws",
     ],
 )
 
@@ -37,7 +42,14 @@ tf_plan(
 )
 
 # "bazel run :apply" should load tfplan and call terraform apply.
+tf_apply_plan(
+    name = "apply_plan",
+    plan = ":plan",
+)
+
+# This one does not use pre-generated plan.
 tf_apply(
     name = "apply",
-    plan = ":plan",
+    lock = ".terraform.lock.hcl",
+    module = ":module",
 )
