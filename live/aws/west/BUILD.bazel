@@ -1,0 +1,32 @@
+load("//tf:rules.bzl", "tf_apply", "tf_init", "tf_module", "tf_validate_test")
+
+tf_module(
+    name = "module",
+    srcs = [
+        "provider.tf",
+    ],
+    backend_config_file = "dev.tfbackend",
+    marker = ".tf_module",
+    plugins = [
+        "terraform-provider-aws",
+    ],
+)
+
+tf_init(
+    name = "init",
+    module = ":module",
+)
+
+# Runs terraform validate. Does not need an access to remote state.
+tf_validate_test(
+    name = "validate",
+    lock = ".terraform.lock.hcl",
+    module = ":module",
+)
+
+# This one does not use pre-generated plan.
+tf_apply(
+    name = "apply",
+    lock = ".terraform.lock.hcl",
+    module = ":module",
+)
