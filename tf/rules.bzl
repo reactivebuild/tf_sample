@@ -1,14 +1,6 @@
 load(":providers.bzl", "PluginInfo")
 
-TerraformProviderInfo = provider(
-    "Info to mark that rule outputs terraform provider",
-    fields = {},
-)
-
-# Extract and copy terraform providers to the particularly structured plugin cache folder.
-def _tf_provider_impl(ctx):
-    plugins = ctx.toolchains["//tf:toolchain_type"].plugins
-    plugin_name = ctx.attr.plugin
+def _find_plugin_by_name(plugin_name, plugins):
     matched = []
     for p in plugins:
         plugin_info = p[PluginInfo]
@@ -19,31 +11,10 @@ def _tf_provider_impl(ctx):
         fail("Could not find terraform plugin %s." % plugin_name)
     if len(matched) > 1:
         print(matched)
-        fail("Multiple plugins with name %s found." % plugin_name)
+        fail("Multiple plugins with name %s are found." % plugin_name)
 
     # matched contains only one element.
-    plugin_info = matched[0]
-    out = ctx.actions.declare_file(plugin_info.alias)
-    ctx.actions.symlink(
-        output = out,
-        target_file = plugin_info.plugin_file,
-    )
-    return [
-        DefaultInfo(
-            files = depset([out]),
-        ),
-        TerraformProviderInfo(),
-    ]
-
-tf_provider = rule(
-    implementation = _tf_provider_impl,
-    attrs = {
-        "plugin": attr.string(
-            mandatory = True,
-        ),
-    },
-    toolchains = ["//tf:toolchain_type"],
-)
+    return matched[0]
 
 TerraformModuleInfo = provider(
     "Info needed to run terraform actions: init, plan, apply",
@@ -60,9 +31,21 @@ def _tf_module_impl(ctx):
         target_file = ctx.file.marker,
     )
 
+    plugins = ctx.toolchains["//tf:toolchain_type"].plugins
+    providers = []
+    for plugin_name in ctx.attr.plugins:
+        plugin_info = _find_plugin_by_name(plugin_name, plugins)
+        out = ctx.actions.declare_file(plugin_info.alias)
+        ctx.actions.symlink(
+            output = out,
+            target_file = plugin_info.plugin_file,
+        )
+        providers.append(out)
+
+    extra = []
     # Collect all files including transitive dependencies
     all_files = depset(
-        ctx.files.srcs + ctx.files.providers,
+        ctx.files.srcs + providers + extra,
         transitive = [dep.files for dep in ctx.attr.deps],
     )
     return [
@@ -89,12 +72,12 @@ tf_module = rule(
             allow_files = [".tf"],
             mandatory = False,
         ),
-        "providers": attr.label_list(
-            providers = [TerraformProviderInfo],
-            allow_files = True,
+        "plugins": attr.string_list(
+            mandatory = False,
             mandatory = False,
         ),
     },
+    toolchains = ["//tf:toolchain_type"],
 )
 
 # Generate terraform lock file in workspace.
@@ -151,7 +134,7 @@ def _tf_validate_test_impl(ctx):
 
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
     content = """set -eu
-TF_LOG=debug
+# TF_LOG=debug
 {terraform} -chdir={terraform_run_folder} init \
  -plugin-dir=. \
  -input=false -no-color -backend=false

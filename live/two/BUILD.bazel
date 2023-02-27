@@ -1,9 +1,4 @@
-load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider", "tf_validate_test")
-
-tf_provider(
-    name = "aws",
-    plugin = "terraform-provider-aws",
-)
+load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_validate_test")
 
 tf_module(
     name = "module",
@@ -11,8 +6,8 @@ tf_module(
         "main.tf",
     ],
     marker = ".tf_module",
-    providers = [
-        ":aws",
+    plugins = [
+        "terraform-provider-aws",
     ],
     deps = [
         "//app",

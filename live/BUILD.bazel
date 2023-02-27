@@ -1,9 +1,6 @@
-load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_provider", "tf_show_plan", "tf_validate_test")
+load("//tf:rules.bzl", "tf_apply", "tf_apply_plan", "tf_init", "tf_module", "tf_plan", "tf_show_plan", "tf_validate_test")
 
-tf_provider(
-    name = "aws",
-    plugin = "terraform-provider-aws",
-)
+package(default_visibility = ["//visibility:public"])
 
 tf_module(
     name = "module",
@@ -12,8 +9,8 @@ tf_module(
         "provider.tf",
     ],
     marker = ".tf_module",
-    providers = [
-        ":aws",
+    plugins = [
+        "terraform-provider-aws",
     ],
     deps = [
         "//app",
