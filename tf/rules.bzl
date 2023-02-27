@@ -21,6 +21,7 @@ TerraformModuleInfo = provider(
     fields = {
         "module_marker": "File to mark module in the build tree",
         "output_marker": "File to mark terraform output folder",
+        "backend_config_file": "Backend config file",
     },
 )
 
@@ -42,16 +43,23 @@ def _tf_module_impl(ctx):
         )
         providers.append(out)
 
+    backend_config_file = None
     extra = []
+    if ctx.attr.backend_config_file != None:
+        backend_config_file = ctx.file.backend_config_file
+        extra.append(backend_config_file)
+
     # Collect all files including transitive dependencies
     all_files = depset(
         ctx.files.srcs + providers + extra,
         transitive = [dep.files for dep in ctx.attr.deps],
     )
+
     return [
         TerraformModuleInfo(
             module_marker = ctx.file.marker,
             output_marker = out_marker,
+            backend_config_file = backend_config_file,
         ),
         DefaultInfo(
             files = all_files,
@@ -74,6 +82,9 @@ tf_module = rule(
         ),
         "plugins": attr.string_list(
             mandatory = False,
+        ),
+        "backend_config_file": attr.label(
+            allow_single_file = True,
             mandatory = False,
         ),
     },
@@ -86,12 +97,16 @@ def _tf_init_impl(ctx):
     module_info = ctx.attr.module[TerraformModuleInfo]
     module_srcs = ctx.attr.module[DefaultInfo].files
 
+    init_options = ""
+    if module_info.backend_config_file != None:
+        init_options = "-backend-config=" + module_info.backend_config_file.basename
+
     terraform = ctx.toolchains["//tf:toolchain_type"].executable
 
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
     content = """set -eu
 {terraform} -chdir={terraform_run_folder} init \
-    -plugin-dir=. -input=false -no-color
+    -plugin-dir=. -input=false -no-color {init_options}
 rm -f $BUILD_WORKSPACE_DIRECTORY/{terraform_run_folder}/.terraform.lock.hcl
 cp {terraform_run_folder}/.terraform.lock.hcl $BUILD_WORKSPACE_DIRECTORY/{terraform_run_folder}
 chmod 644 $BUILD_WORKSPACE_DIRECTORY/{terraform_run_folder}/.terraform.lock.hcl
@@ -99,6 +114,7 @@ chmod 644 $BUILD_WORKSPACE_DIRECTORY/{terraform_run_folder}/.terraform.lock.hcl
         terraform = terraform.path,
         terraform_run_folder = module_info.module_marker.dirname,
         output_folder = module_info.output_marker.dirname,
+        init_options = init_options,
     )
     ctx.actions.write(
         output = out_file,
@@ -195,6 +211,10 @@ def _tf_plan_impl(ctx):
     module_info = ctx.attr.module[TerraformModuleInfo]
     module_srcs = ctx.attr.module[DefaultInfo].files
 
+    init_options = ""
+    if module_info.backend_config_file != None:
+        init_options = "-backend-config=" + module_info.backend_config_file.basename
+
     # outputs
     plan = ctx.outputs.plan
     terraform_dir = ctx.outputs.terraform_dir
@@ -206,7 +226,7 @@ def _tf_plan_impl(ctx):
 # enable to debug local provider resolution export TF_LOG=debug
 {terraform} -chdir={terraform_run_folder} init \
  -plugin-dir=$(pwd)/{output_folder} \
- -input=false -no-color
+ -input=false -no-color {init_options}
 {terraform} -chdir={terraform_run_folder} plan \
  -out=tfplan \
  -input=false
@@ -218,6 +238,7 @@ cp -rL {terraform_run_folder}/.terraform $2
         terraform = terraform.path,
         terraform_run_folder = module_info.module_marker.dirname,
         output_folder = module_info.output_marker.dirname,
+        init_options = init_options,
     )
     input = depset(
         [ctx.file.lock],
@@ -351,24 +372,29 @@ def _tf_apply_impl(ctx):
     module_info = ctx.attr.module[TerraformModuleInfo]
     module_srcs = ctx.attr.module[DefaultInfo].files
 
+    init_options = ""
+    if module_info.backend_config_file != None:
+        init_options = "-backend-config=" + module_info.backend_config_file.basename
+
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
     terraform = ctx.toolchains["//tf:toolchain_type"].executable
     runfiles = ctx.runfiles(
         files = [terraform, ctx.file.lock] + module_srcs.to_list(),
     )
 
-    options = ""
+    apply_options = ""
     if ctx.attr.auto_approve:
-        options = options + "-input=false -auto-approve"
+        apply_options = apply_options + "-input=false -auto-approve"
 
     content = """set -eu
-{terraform} -chdir={terraform_run_folder} init -plugin-dir=. -input=false
-{terraform} -chdir={terraform_run_folder} apply {options}
+{terraform} -chdir={terraform_run_folder} init -plugin-dir=. -input=false {init_options}
+{terraform} -chdir={terraform_run_folder} apply {apply_options}
 """.format(
         terraform = terraform.path,
         terraform_run_folder = module_info.module_marker.dirname,
         output_folder = module_info.output_marker.dirname,
-        options = options,
+        apply_options = apply_options,
+        init_options = init_options,
     )
 
     ctx.actions.write(
