@@ -8,7 +8,7 @@ tf_toolchain(
     name = "tf_linux_amd64",
     executable = "@terraform_linux_amd64//:terraform",
     plugins = [
-        "@terraform_provider_aws_darwin_amd64",
+        "@terraform_provider_aws_linux_amd64",
     ],
 )
 

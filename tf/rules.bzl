@@ -105,7 +105,7 @@ def _tf_init_impl(ctx):
 
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
     content = """set -eu
-{terraform} -chdir={terraform_run_folder} init \
+{terraform} -chdir={terraform_run_folder} init -upgrade \
     -plugin-dir=. -input=false -no-color {init_options}
 rm -f $BUILD_WORKSPACE_DIRECTORY/{terraform_run_folder}/.terraform.lock.hcl
 cp {terraform_run_folder}/.terraform.lock.hcl $BUILD_WORKSPACE_DIRECTORY/{terraform_run_folder}
@@ -133,6 +133,10 @@ chmod 644 $BUILD_WORKSPACE_DIRECTORY/{terraform_run_folder}/.terraform.lock.hcl
 tf_init = rule(
     implementation = _tf_init_impl,
     attrs = {
+        "lock": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
         "module": attr.label(
             providers = [TerraformModuleInfo],
             mandatory = True,

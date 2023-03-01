@@ -15,10 +15,14 @@ tf_module(
     ],
 )
 
-# "bazel run :init" generates lock file. It has to be stored under source control.
+# "bazel run :init" generates or updates lock file. It has to be stored under source control.
+# TODO: switch of OSes resets hash or plugin, need a better way like
+#  (terraform providers lock -platform=linux_arm64 -platform=linux_amd64)
+# but it requires plugins for all platforms be available. It is not the way of how toolchains are working.
 tf_init(
     name = "init",
     module = ":module",
+    lock = ".terraform.lock.hcl",
 )
 
 tf_validate_test(

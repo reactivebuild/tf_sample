@@ -28,6 +28,7 @@ tf_validate_test(
 tf_init(
     name = "init",
     module = ":module",
+    lock = ".terraform.lock.hcl",
 )
 
 # TODO: plan depends on the remote state in AWS. Is there a way to check that it did not changed
