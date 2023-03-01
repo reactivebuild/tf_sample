@@ -25,6 +25,8 @@ TerraformModuleInfo = provider(
     },
 )
 
+# TODO: should lock attribute be part module? if yes, can we remove marker?
+
 def _tf_module_impl(ctx):
     out_marker = ctx.actions.declare_file(ctx.label.name + ".tf_module")
     ctx.actions.symlink(
